@@ -7,6 +7,9 @@ cd ~/
 CONF="/etc/snell/snell-server.conf"
 SYSTEMD="/etc/systemd/system/snell.service"
 
+PSK=''
+PORT='23333'
+
 exiterr() { echo "Error: $1" >&2; exit 1; }
 
 check_root() {
@@ -60,17 +63,6 @@ EOF
     fi
 }
 
-
-preparation() {
-    wget --no-check-certificate -O snell.zip https://github.com/surge-networks/snell/releases/download/v3.0.1/snell-server-v3.0.1-linux-amd64.zip
-    
-    unzip -o snell.zip
-    rm -f snell.zip
-
-    chmod +x snell-server
-    mv -f snell-server /usr/local/bin/
-}
-
 config_gen() {
     if [ -f ${CONF} ]; then
         echo "Found existing config..."
@@ -84,20 +76,29 @@ config_gen() {
         mkdir /etc/snell/
         echo "Generating new config..."
         echo "[snell-server]" >>${CONF}
-        echo "listen = 0.0.0.0:13254" >>${CONF}
+        echo "listen = 0.0.0.0:${PORT}" >>${CONF}
         echo "psk = ${PSK}" >>${CONF}
         echo "obfs = tls" >>${CONF}
     fi
 }
 
 snell_installer() {
-    status=0
+    wget --no-check-certificate -O snell.zip https://github.com/surge-networks/snell/releases/download/v3.0.1/snell-server-v3.0.1-linux-amd64.zip
+    
+    unzip -o snell.zip
+    rm -f snell.zip
 
+    chmod +x snell-server
+    mv -f snell-server /usr/local/bin/
+}
+
+service_gen() {
     if [ -f ${SYSTEMD} ]; then
         echo "Found existing service..."
         systemctl daemon-reload
         systemctl restart snell
     else
+        snell_installer
         echo "Generating new service..."
         echo "[Unit]" >>${SYSTEMD}
         echo "Description=Snell Proxy Service" >>${SYSTEMD}
@@ -119,11 +120,9 @@ snell_installer() {
 snell_setup() {
     check_root
     check_os
-    preparation
     config_gen
-    snell_installer
+    service_gen
 }
 
 snell_setup "%@"
-
-exit "$status"
+exit 0
